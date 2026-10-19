@@ -8,9 +8,11 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
 
 def send(text):
-    requests.post(
-        f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/sendMessage",
-        data={"chat_id": os.environ["CHAT_ID"], "text": text}, timeout=20)
+    token = os.environ["TELEGRAM_TOKEN"].strip()
+    chat = os.environ["CHAT_ID"].strip()
+    r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                      data={"chat_id": chat, "text": text}, timeout=20)
+    print("TELEGRAM SAYS:", r.text)
 
 responses = []
 with sync_playwright() as p:
@@ -30,11 +32,6 @@ with sync_playwright() as p:
     page.wait_for_timeout(3000)
     title = page.title()
     lines = [l.strip() for l in page.inner_text("body").split("\n") if l.strip()]
-    for r in responses:
-        try:
-            print("STOCK DATA:", r.url, r.text()[:1500])
-        except Exception:
-            pass
     browser.close()
 
 print("TITLE:", title)
@@ -44,12 +41,11 @@ for i, l in enumerate(lines):
         nxt = lines[i + 1].lower() if i + 1 < len(lines) else ""
         stock[l] = "ik wil hem" not in nxt
         print("SIZE:", lines[i:i + 3])
-print(stock)
+print("STOCK:", stock)
 
 if not stock:
     print("PAGE TEXT:", lines[:40])
     sys.exit("Size list not found")
-if os.environ.get("TEST") == "yes":
-    send(f"Test OK. Stock: {stock}")
+send(f"Test OK. Stock: {stock}") if os.environ.get("TEST") == "yes" else None
 if stock.get(SIZE):
     send(f"Size {SIZE} is BACK in stock!\n{URL}")
