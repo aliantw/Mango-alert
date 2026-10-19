@@ -4,34 +4,50 @@ from playwright.sync_api import sync_playwright
 URL = "https://shop.mango.com/be/nl/p/37097133/99/00"
 SIZE = "M"
 SIZES = ["XXS", "XS", "S", "M", "L", "XL", "XXL"]
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
 
 def send(text):
     requests.post(
         f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/sendMessage",
         data={"chat_id": os.environ["CHAT_ID"], "text": text}, timeout=20)
 
+responses = []
 with sync_playwright() as p:
-    browser = p.chromium.launch()
-    page = browser.new_page(locale="nl-BE")
+    browser = p.chromium.launch(args=["--disable-blink-features=AutomationControlled"])
+    page = browser.new_page(locale="nl-BE", user_agent=UA,
+                            viewport={"width": 1280, "height": 900})
+    page.on("response", lambda r: responses.append(r) if "stock" in r.url.lower() else None)
     page.goto(URL, wait_until="domcontentloaded", timeout=60000)
     try:
-        page.get_by_role("button", name="Alleen noodzakelijke cookies").click(timeout=5000)
+        page.get_by_role("button", name="Alleen noodzakelijke cookies").click(timeout=8000)
     except Exception:
         pass
-    page.wait_for_timeout(4000)
-    stock = {}
-    for li in page.locator("li").all():
+    try:
+        page.get_by_text("XXS", exact=True).first.wait_for(timeout=20000)
+    except Exception:
+        pass
+    page.wait_for_timeout(3000)
+    title = page.title()
+    lines = [l.strip() for l in page.inner_text("body").split("\n") if l.strip()]
+    for r in responses:
         try:
-            t = li.inner_text(timeout=1000).strip()
+            print("STOCK DATA:", r.url, r.text()[:1500])
         except Exception:
-            continue
-        s = t.split("\n")[0].strip()
-        if s in SIZES and s not in stock:
-            stock[s] = "ik wil hem" not in t.lower()
+            pass
     browser.close()
 
+print("TITLE:", title)
+stock = {}
+for i, l in enumerate(lines):
+    if l in SIZES and l not in stock:
+        nxt = lines[i + 1].lower() if i + 1 < len(lines) else ""
+        stock[l] = "ik wil hem" not in nxt
+        print("SIZE:", lines[i:i + 3])
 print(stock)
+
 if not stock:
+    print("PAGE TEXT:", lines[:40])
     sys.exit("Size list not found")
 if os.environ.get("TEST") == "yes":
     send(f"Test OK. Stock: {stock}")
