@@ -19,7 +19,8 @@ def norm(x):
 
 MANGO_SIZES = [norm(s) for s in ["XXS", "XS", "S", "M", "L", "XL", "XXL"]
                + [str(n) for n in range(30, 50)]]
-MANGO_SOLD_WORDS = ["disabled", "unavailable", "nostock", "no-stock", "outofstock", "soldout"]
+MANGO_SOLD_WORDS = ['aria-disabled="true"', 'disabled=""', "unavailable", "nostock",
+                    "no-stock", "outofstock", "out-of-stock", "soldout", "sold-out"]
 COS_SIZES = ["XXS", "XXL", "XL", "XS", "S", "M", "L"] + [str(n) for n in range(30, 50)]
 COS_SOLD_WORDS = ["coming soon", "notify me", "sold out", "out of stock"]
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -50,6 +51,7 @@ def mango_stock(page):
         s = norm(text.split("\n")[0])
         if (s in MANGO_SIZES or "maat" in s) and s not in stock:
             stock[s] = not any(w in html.lower() for w in MANGO_SOLD_WORDS)
+            print("MANGO SIZE", s, "HTML:", html[:400])
     return stock
 
 def cos_stock(page):
@@ -59,6 +61,7 @@ def cos_stock(page):
     if start is None:
         print("COS: 'Select Size' not found. First lines:", lines[:30])
         return {}
+    print("COS LINES:", lines[start:start + 20])
     stock = {}
     for i in range(start + 1, min(start + 40, len(lines))):
         low = lines[i].lower()
