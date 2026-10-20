@@ -1,4 +1,4 @@
-import os, sys, requests
+import os, sys, requests, unicodedata
 from playwright.sync_api import sync_playwright
 
 # ===== YOUR ITEMS: add one line per item =====
@@ -8,7 +8,11 @@ ITEMS = [
 ]
 # =============================================
 
-SIZES = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "Één maat"] + [str(n) for n in range(30, 50)]
+def norm(x):
+    return unicodedata.normalize("NFC", x).replace("\xa0", " ").strip().lower()
+
+SIZES = [norm(s) for s in ["XXS", "XS", "S", "M", "L", "XL", "XXL", "Één maat"]
+         + [str(n) for n in range(30, 50)]]
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
 SOLD_OUT_WORDS = ["disabled", "unavailable", "nostock", "no-stock", "outofstock", "soldout"]
@@ -36,8 +40,8 @@ def get_stock(page, url):
             html = li.inner_html(timeout=1000)
         except Exception:
             continue
-        s = text.split("\n")[0].strip()
-        if s in SIZES and s not in stock:
+        s = norm(text.split("\n")[0])
+        if (s in SIZES or "maat" in s) and s not in stock:
             stock[s] = not any(w in html.lower() for w in SOLD_OUT_WORDS)
     return stock
 
@@ -56,7 +60,7 @@ with sync_playwright() as p:
             continue
         print(item["name"], "STOCK:", stock)
         report.append(f"{item['name']}: {stock}")
-        if stock.get(item["size"]):
+        if stock.get(norm(item["size"])):
             send(f"{item['name']} is BACK in stock ({item['size']})! Tap to open.", item["url"])
     browser.close()
 
